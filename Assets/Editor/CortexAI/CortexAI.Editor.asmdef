@@ -1,0 +1,19 @@
+{
+    "name": "CortexAI.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:e3f0524cc49384ef4928a84ee8cda6ba",
+        "GUID:34c19cffbec814d4f86add36588cad82"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

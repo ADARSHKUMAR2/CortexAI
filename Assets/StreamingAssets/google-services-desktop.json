@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "338515610306",
+    "project_id": "cortex-1741c",
+    "storage_bucket": "cortex-1741c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:338515610306:android:a45c9a1b716748dce5c95b",
+        "android_client_info": {
+          "package_name": "com.adarsh.cortexai"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "338515610306-9eumnk8fafl217icqasnp6bsmkm2miji.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.adarsh.cortexai",
+            "certificate_hash": "e281786018e381bb3e714255bfa4726b4e72f285"
+          }
+        },
+        {
+          "client_id": "338515610306-lotraotu4cfhgvdpdj6afd0e6n1vkdnh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAvmI6fC6Blt4gbv6tXg0MfcAXBYbNF1RE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "338515610306-lotraotu4cfhgvdpdj6afd0e6n1vkdnh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
