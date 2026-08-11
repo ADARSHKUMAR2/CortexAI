@@ -11,7 +11,7 @@ namespace CortexAI
 
         [Header("Login Screen")]
         public GameObject LoginPanel;
-        // public InputField TokenInput;
+        public InputField TokenInput;
         public Button GoogleLoginButton;
 
         [Header("Main Chat Screen")]
@@ -19,6 +19,7 @@ namespace CortexAI
         public Text UserInfoText;
         public Button LogoutButton;
         public Button NewChatButton;
+        public Dropdown AgentModeDropdown;
         
         [Header("Conversations List")]
         public RectTransform ConversationsContent;
@@ -43,7 +44,22 @@ namespace CortexAI
             NewChatButton.onClick.AddListener(OnNewChatClicked);
             SendButton.onClick.AddListener(OnSendClicked);
 
+            if (AgentModeDropdown != null)
+            {
+                AgentModeDropdown.ClearOptions();
+                var modes = new List<string>(System.Enum.GetNames(typeof(CortexAIAgentMode)));
+                AgentModeDropdown.AddOptions(modes);
+                
+                AgentModeDropdown.value = modes.IndexOf(CortexAIAgentMode.Auto.ToString());
+                AgentModeDropdown.onValueChanged.AddListener(OnAgentModeChanged);
+            }
+
             _ = InitializeAsync();
+        }
+
+        private void OnAgentModeChanged(int index)
+        {
+            _currentMode = (CortexAIAgentMode)index;
         }
 
         private async Task InitializeAsync()
@@ -68,12 +84,18 @@ namespace CortexAI
         {
             GoogleLoginButton.interactable = false;
 
-            // 1. Trigger the Google popup and get the Firebase Token
-            string firebaseToken = await AuthManager.SignInWithGoogleAsync();
+            // 1. Check if a token was manually pasted (for Editor testing)
+            string firebaseToken = TokenInput != null ? TokenInput.text : "";
 
+            // 2. If no token was pasted, attempt native Google Sign-In
+            if (string.IsNullOrEmpty(firebaseToken))
+            {
+                firebaseToken = await AuthManager.SignInWithGoogleAsync();
+            }
+            
             if (!string.IsNullOrEmpty(firebaseToken))
             {
-                // 2. Send the token to your Python Backend using your existing Client
+                // 3. Send the token to your Python Backend using your existing Client
                 bool success = await Client.LoginAsync(firebaseToken);
                 
                 ShowPanel(success);
@@ -114,7 +136,7 @@ namespace CortexAI
             foreach (Transform child in ConversationsContent) Destroy(child.gameObject);
 
             var convs = await Client.GetConversationsAsync();
-            if (convs == null) return;
+            if (convs == null || convs.Length == 0) return;
 
             foreach (var c in convs)
             {
@@ -122,6 +144,9 @@ namespace CortexAI
                 btnObj.GetComponentInChildren<Text>().text = c.DisplayTitle;
                 btnObj.GetComponent<Button>().onClick.AddListener(() => _ = SelectConversation(c));
             }
+
+            // Auto-select the first (most recent) conversation by default
+            _ = SelectConversation(convs[0]);
         }
 
         private async Task SelectConversation(CortexAIConversation c)
@@ -137,12 +162,25 @@ namespace CortexAI
 
         private async void OnSendClicked()
         {
-            if (string.IsNullOrEmpty(PromptInput.text) || _activeConv == null) return;
+            Debug.Log("[CortexAI] Send button clicked.");
+
+            if (string.IsNullOrEmpty(PromptInput.text))
+            {
+                Debug.LogWarning("[CortexAI] Send aborted: Prompt input is empty.");
+                return;
+            }
+
+            if (_activeConv == null)
+            {
+                Debug.LogWarning("[CortexAI] Send aborted: No active conversation selected.");
+                return;
+            }
 
             string prompt = PromptInput.text;
             PromptInput.text = "";
             SendButton.interactable = false;
 
+            Debug.Log($"[CortexAI] Sending prompt: {prompt}");
             AddMessageToUI("You", prompt);
 
             var res = await Client.SendPromptAsync(prompt, _activeConv.Id, _currentMode);

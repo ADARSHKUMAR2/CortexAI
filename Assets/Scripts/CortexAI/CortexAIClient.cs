@@ -30,6 +30,7 @@ namespace CortexAI
 
         public void Logout()
         {
+            Debug.Log("[CortexAI] Logging out and clearing session cookie.");
             SessionCookie = "";
             CurrentUser = null;
             PlayerPrefs.DeleteKey(SessionCookieKey);
@@ -50,13 +51,16 @@ namespace CortexAI
 
         public async Task<bool> LoginAsync(string firebaseToken)
         {
+            Debug.Log("[CortexAI] LoginAsync called with Firebase token.");
             string json = JsonUtility.ToJson(new CortexAILoginRequest(firebaseToken));
             string res = await PostJsonAsync("/auth/login", json);
             if (!string.IsNullOrEmpty(res))
             {
                 CurrentUser = JsonUtility.FromJson<CortexAIUser>(res);
+                Debug.Log($"[CortexAI] Login successful for user ID: {CurrentUser?.Id}");
                 return true;
             }
+            Debug.Log("[CortexAI] Login failed. Response was empty or error.");
             return false;
         }
 
@@ -84,6 +88,7 @@ namespace CortexAI
 
         public async Task<CortexAIAgentResponse> SendPromptAsync(string prompt, string convId, CortexAIAgentMode mode, string filePath = null)
         {
+            Debug.Log($"[CortexAI] SendPromptAsync: prompt='{prompt}', agent='{mode.ToBackendValue()}', file='{filePath}'");
             List<IMultipartFormSection> form = new List<IMultipartFormSection>
             {
                 new MultipartFormDataSection("prompt", prompt ?? ""),
@@ -132,6 +137,7 @@ namespace CortexAI
 
         private async Task<string> SendRequest(UnityWebRequest req)
         {
+            Debug.Log($"[CortexAI] ---> HTTP {req.method} {req.url}");
             if (!string.IsNullOrEmpty(SessionCookie))
                 req.SetRequestHeader("Cookie", SessionCookie);
 
@@ -148,11 +154,13 @@ namespace CortexAI
             if (req.isNetworkError || req.isHttpError)
 #endif
             {
-                Debug.LogError($"[CortexAI] API Error: {req.error}\nResponse: {req.downloadHandler?.text}");
+                Debug.LogError($"[CortexAI] <--- HTTP {req.responseCode} Error: {req.error}\nResponse: {req.downloadHandler?.text}");
                 return null;
             }
 
-            return req.downloadHandler?.text;
+            string responseText = req.downloadHandler?.text;
+            Debug.Log($"[CortexAI] <--- HTTP {req.responseCode} {req.url}\nResponse: {responseText}");
+            return responseText;
         }
 
         private void CaptureCookie(string header)

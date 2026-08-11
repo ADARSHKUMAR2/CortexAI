@@ -12,6 +12,8 @@ namespace CortexAI
         // PASTE YOUR WEB CLIENT ID HERE
         public string webClientId = "YOUR_WEB_CLIENT_ID_FROM_FIREBASE.apps.googleusercontent.com"; 
 
+        public string firebaseToken;
+
         private FirebaseAuth auth;
 
         private void Start()
