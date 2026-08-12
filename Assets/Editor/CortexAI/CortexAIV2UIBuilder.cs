@@ -258,22 +258,23 @@ namespace CortexAI.Editor
             var msgTextCsf = msgTextObj.AddComponent<ContentSizeFitter>();
             msgTextCsf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             
-            // Add an Image placeholder for generated images
-            GameObject msgImgObj = CreatePanel("MsgImage", msgPrefab.transform, Color.white);
-            msgImgObj.SetActive(false); // Hidden by default unless an image exists
-            var imgLe = msgImgObj.AddComponent<LayoutElement>();
+            // Add an Image Template for generated images (used for pooling/cloning)
+            GameObject imgTemplate = CreatePanel("ImageTemplate", msgPrefab.transform, Color.white);
+            imgTemplate.SetActive(false); // Hidden template
+            var imgLe = imgTemplate.AddComponent<LayoutElement>();
             imgLe.minHeight = 400; // Default height for an image
             imgLe.flexibleWidth = 1f;
-            var arf = msgImgObj.AddComponent<AspectRatioFitter>();
+            var arf = imgTemplate.AddComponent<AspectRatioFitter>();
             arf.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
             arf.aspectRatio = 1f; // Square by default, will update dynamically when downloaded
 
             // Allow the prefab itself to size according to the text & image padding
             var msgVLG = msgPrefab.AddComponent<VerticalLayoutGroup>();
+            msgVLG.childAlignment = TextAnchor.UpperLeft; // Prevents gap between text and image
             msgVLG.childControlWidth = true;
             msgVLG.childForceExpandWidth = true; // Forces text/image child to fill width of bubble
             msgVLG.childControlHeight = true;
-            msgVLG.childForceExpandHeight = false;
+            msgVLG.childForceExpandHeight = false; // MUST be false to prevent vertical stretching gaps
             msgVLG.spacing = 20;
             msgVLG.padding = new RectOffset(40, 40, 40, 40);
             

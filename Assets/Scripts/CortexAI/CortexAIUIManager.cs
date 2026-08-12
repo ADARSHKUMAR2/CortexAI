@@ -292,20 +292,44 @@ namespace CortexAI
                 msgObj.GetComponentInChildren<TextMeshProUGUI>().text = $"<b>{sender}</b>\n{text}";
 
             // Handle Images
-            var imgObj = msgObj.transform.Find("MsgImage");
-            if (imgObj != null)
+            var imgTemplate = msgObj.transform.Find("ImageTemplate");
+            if (imgTemplate != null)
             {
-                if (images != null && images.Length > 0 && !string.IsNullOrEmpty(images[0]))
+                // First, deactivate any previously spawned images inside this recycled bubble
+                foreach (Transform child in msgObj.transform)
                 {
-                    imgObj.gameObject.SetActive(true);
-                    _ = DownloadAndApplyImageAsync(images[0], imgObj.GetComponent<Image>(), imgObj.GetComponent<AspectRatioFitter>());
+                    if (child.name.StartsWith("SpawnedImage_"))
+                    {
+                        child.gameObject.SetActive(false);
+                    }
                 }
-                else
+
+                // If this message has images, spawn them from the template!
+                if (images != null && images.Length > 0)
                 {
-                    imgObj.gameObject.SetActive(false);
+                    for (int i = 0; i < images.Length; i++)
+                    {
+                        if (string.IsNullOrEmpty(images[i])) continue;
+
+                        // Check if we already have an inactive spawned image to reuse
+                        Transform existingImg = msgObj.transform.Find($"SpawnedImage_{i}");
+                        GameObject spawnedImgObj;
+                        
+                        if (existingImg != null)
+                        {
+                            spawnedImgObj = existingImg.gameObject;
+                        }
+                        else
+                        {
+                            spawnedImgObj = Instantiate(imgTemplate.gameObject, msgObj.transform);
+                            spawnedImgObj.name = $"SpawnedImage_{i}";
+                        }
+
+                        spawnedImgObj.SetActive(true);
+                        _ = DownloadAndApplyImageAsync(images[i], spawnedImgObj.GetComponent<Image>(), spawnedImgObj.GetComponent<AspectRatioFitter>());
+                    }
                 }
             }
-
         }
 
         private async Task DownloadAndApplyImageAsync(string url, Image targetImage, AspectRatioFitter fitter)

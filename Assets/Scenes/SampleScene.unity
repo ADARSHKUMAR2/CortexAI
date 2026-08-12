@@ -3931,7 +3931,7 @@ MonoBehaviour:
   ConversationsContent: {fileID: 1257297131}
   ConversationButtonPrefab: {fileID: 4551184548642525089, guid: 88b8ce1c91c9541cb933b7966ada29be, type: 3}
   MessagesContent: {fileID: 1816032183}
-  MessagePrefab: {fileID: 7437644231944707845, guid: ed61cf31b5cc4428abab14e3d7c38b3e, type: 3}
+  MessagePrefab: {fileID: 881564050992755515, guid: ed61cf31b5cc4428abab14e3d7c38b3e, type: 3}
   PromptInput: {fileID: 807688395}
   SendButton: {fileID: 1964818333}
   AuthManager: {fileID: 1988251181}
