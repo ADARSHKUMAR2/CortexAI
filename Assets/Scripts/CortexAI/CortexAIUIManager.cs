@@ -54,6 +54,27 @@ namespace CortexAI
             if (OpenSidebarButton != null) OpenSidebarButton.onClick.AddListener(() => SidePanel.SetActive(true));
             if (CloseSidebarButton != null) CloseSidebarButton.onClick.AddListener(() => SidePanel.SetActive(false));
 
+            // Runtime fix for older generated UI layouts to ensure messages stretch
+            if (MessagesContent != null)
+            {
+                var vlg = MessagesContent.GetComponent<VerticalLayoutGroup>();
+                if (vlg != null) { vlg.childControlWidth = true; vlg.childForceExpandWidth = true; }
+            }
+            if (MessagePrefab != null)
+            {
+                var txtObj = MessagePrefab.transform.Find("MsgText");
+                if (txtObj != null)
+                {
+                    if (txtObj.GetComponent<ContentSizeFitter>() == null)
+                    {
+                        var csf = txtObj.gameObject.AddComponent<ContentSizeFitter>();
+                        csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+                    }
+                    var tmp = txtObj.GetComponent<TextMeshProUGUI>();
+                    if (tmp != null) tmp.textWrappingMode = TextWrappingModes.Normal;
+                }
+            }
+
             if (AgentModeDropdown != null)
             {
                 AgentModeDropdown.ClearOptions();
@@ -137,13 +158,18 @@ namespace CortexAI
                 await RefreshConversations();
                 _activeConv = conv;
                 ClearChat();
+
+                if (SidePanel != null) SidePanel.SetActive(false); 
             }
         }
 
         private async Task RefreshConversations()
         {
-            // Clear existing buttons
-            foreach (Transform child in ConversationsContent) Destroy(child.gameObject);
+            // Deactivate existing buttons (Pool them)
+            foreach (Transform child in ConversationsContent)
+            {
+                child.gameObject.SetActive(false);
+            }
 
             var convs = await Client.GetConversationsAsync();
             Debug.Log($"[CortexAI] Loaded {convs?.Length ?? 0} conversations from API.");
@@ -151,16 +177,38 @@ namespace CortexAI
 
             foreach (var c in convs)
             {
-                var btnObj = Instantiate(ConversationButtonPrefab, ConversationsContent);
-                btnObj.SetActive(true); // Crucial: Prefab is inactive by default!
+                GameObject btnObj = null;
                 
+                // Find an inactive button in the pool
+                foreach (Transform child in ConversationsContent)
+                {
+                    if (!child.gameObject.activeSelf)
+                    {
+                        btnObj = child.gameObject;
+                        break;
+                    }
+                }
+
+                // Create a new one if pool is empty
+                if (btnObj == null)
+                {
+                    btnObj = Instantiate(ConversationButtonPrefab, ConversationsContent);
+                }
+
+                btnObj.SetActive(true);
+                btnObj.transform.SetAsLastSibling();
+                
+                // Update Title Text
                 var txtTransform = btnObj.transform.Find("Text");
                 if (txtTransform != null) 
                     txtTransform.GetComponent<TextMeshProUGUI>().text = c.DisplayTitle;
                 else 
                     btnObj.GetComponentInChildren<TextMeshProUGUI>().text = c.DisplayTitle;
 
-                btnObj.GetComponent<Button>().onClick.AddListener(() => _ = SelectConversation(c));
+                // Clear old pooled listeners before adding the new one
+                Button btn = btnObj.GetComponent<Button>();
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() => _ = SelectConversation(c));
             }
 
             // Auto-select the first (most recent) conversation by default
@@ -172,11 +220,13 @@ namespace CortexAI
         {
             _activeConv = c;
             ClearChat();
+
+            if (SidePanel != null) SidePanel.SetActive(false);
             
             var msgs = await Client.GetMessagesAsync(c.Id);
             if (msgs == null) return;
 
-            foreach (var m in msgs) AddMessageToUI(m.role == "user" ? "You" : "CortexAI", m.content);
+            foreach (var m in msgs) AddMessageToUI(m.role == "user" ? "You" : "CortexAI", m.content, m.images);
         }
 
         private async void OnSendClicked()
@@ -204,21 +254,101 @@ namespace CortexAI
 
             var res = await Client.SendPromptAsync(prompt, _activeConv.Id, _currentMode);
             
-            if (res != null) AddMessageToUI("CortexAI", res.answer);
+            if (res != null) AddMessageToUI("CortexAI", res.answer, res.images);
             else AddMessageToUI("Error", "Failed to get a response from the server.");
 
             SendButton.interactable = true;
         }
 
-        private void AddMessageToUI(string sender, string text)
+        private void AddMessageToUI(string sender, string text, string[] images = null)
         {
-            var msgObj = Instantiate(MessagePrefab, MessagesContent);
-            msgObj.GetComponentInChildren<TextMeshProUGUI>().text = $"<b>{sender}</b>\n{text}";
+            GameObject msgObj = null;
+    
+            // 1. Try to find an inactive pooled object
+            foreach (Transform child in MessagesContent)
+            {
+                if (!child.gameObject.activeSelf)
+                {
+                    msgObj = child.gameObject;
+                    break;
+                }
+            }
+            
+            // 2. Expand pool if no inactive objects are found
+            if (msgObj == null)
+            {
+                msgObj = Instantiate(MessagePrefab, MessagesContent);
+            }
+
+            // 3. Activate and move to bottom
+            msgObj.SetActive(true);
+            msgObj.transform.SetAsLastSibling();
+            
+            // 4. Set the text
+            var txtObj = msgObj.transform.Find("MsgText");
+            if (txtObj != null)
+                txtObj.GetComponent<TextMeshProUGUI>().text = $"<b>{sender}</b>\n{text}";
+            else
+                msgObj.GetComponentInChildren<TextMeshProUGUI>().text = $"<b>{sender}</b>\n{text}";
+
+            // Handle Images
+            var imgObj = msgObj.transform.Find("MsgImage");
+            if (imgObj != null)
+            {
+                if (images != null && images.Length > 0 && !string.IsNullOrEmpty(images[0]))
+                {
+                    imgObj.gameObject.SetActive(true);
+                    _ = DownloadAndApplyImageAsync(images[0], imgObj.GetComponent<Image>(), imgObj.GetComponent<AspectRatioFitter>());
+                }
+                else
+                {
+                    imgObj.gameObject.SetActive(false);
+                }
+            }
+
         }
+
+        private async Task DownloadAndApplyImageAsync(string url, Image targetImage, AspectRatioFitter fitter)
+        {
+            if (string.IsNullOrEmpty(url) || targetImage == null) return;
+
+            if (url.StartsWith("/")) url = Client.BaseUrl + url;
+
+            using (UnityEngine.Networking.UnityWebRequest req = UnityEngine.Networking.UnityWebRequestTexture.GetTexture(url))
+            {
+                var op = req.SendWebRequest();
+                while (!op.isDone) await Task.Delay(10);
+
+        #if UNITY_2020_1_OR_NEWER
+                if (req.result == UnityEngine.Networking.UnityWebRequest.Result.ConnectionError || req.result == UnityEngine.Networking.UnityWebRequest.Result.ProtocolError)
+        #else
+                if (req.isNetworkError || req.isHttpError)
+        #endif
+                {
+                    Debug.LogError($"[CortexAI] Failed to download image from {url}: {req.error}");
+                    return;
+                }
+
+                Texture2D texture = UnityEngine.Networking.DownloadHandlerTexture.GetContent(req);
+                if (texture != null)
+                {
+                    targetImage.sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+                    if (fitter != null)
+                    {
+                        fitter.aspectRatio = (float)texture.width / texture.height;
+                    }
+                }
+            }
+        }
+
 
         private void ClearChat()
         {
-            foreach (Transform child in MessagesContent) Destroy(child.gameObject);
+            foreach (Transform child in MessagesContent)
+            {
+                child.gameObject.SetActive(false);
+            }
         }
+
     }
 }

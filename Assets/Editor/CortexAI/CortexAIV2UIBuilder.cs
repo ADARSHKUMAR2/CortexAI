@@ -91,9 +91,20 @@ namespace CortexAI.Editor
             chatScroll.GetComponent<RectTransform>().offsetMin = new Vector2(0, 250);  
             
             RectTransform chatContent = chatScroll.GetComponent<ScrollRect>().content;
+            // Stretch content horizontally to fill viewport width
+            chatContent.anchorMin = new Vector2(0, 1);
+            chatContent.anchorMax = new Vector2(1, 1);
+            chatContent.pivot = new Vector2(0.5f, 1);
+            chatContent.offsetMin = new Vector2(0, chatContent.offsetMin.y);
+            chatContent.offsetMax = new Vector2(0, chatContent.offsetMax.y);
+
             var cvl = chatContent.gameObject.AddComponent<VerticalLayoutGroup>();
+            cvl.childControlWidth = true; cvl.childForceExpandWidth = true; // Fixes crushed width of messages
             cvl.childControlHeight = true; cvl.childForceExpandHeight = false;
             cvl.spacing = 30; cvl.padding = new RectOffset(40, 40, 40, 40);
+
+            var chatCsf = chatContent.gameObject.AddComponent<ContentSizeFitter>();
+            chatCsf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             // Input Area
             GameObject inputArea = CreatePanel("InputArea", mainPanel.transform, bgDark);
@@ -235,13 +246,43 @@ namespace CortexAI.Editor
             GameObject msgPrefab = CreatePanel("Message", null, new Color(0.15f, 0.15f, 0.2f, 1f)); 
             var le = msgPrefab.AddComponent<LayoutElement>();
             le.minHeight = 150;
+            le.flexibleWidth = 1f; // Force the background bubble to stretch horizontally
+            
             var msgTextObj = CreateText("MsgText", msgPrefab.transform, "Message", 40);
             var mt = msgTextObj.GetComponent<TextMeshProUGUI>();
             mt.alignment = TextAlignmentOptions.TopLeft;
             mt.richText = true;
-            SetRect(msgTextObj, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
-            msgTextObj.GetComponent<RectTransform>().offsetMin = new Vector2(30, 30);
-            msgTextObj.GetComponent<RectTransform>().offsetMax = new Vector2(-30, -30);
+            mt.textWrappingMode = TextWrappingModes.Normal; // Ensure text wraps correctly
+            
+            // Add ContentSizeFitter to the text so it grows vertically based on content
+            var msgTextCsf = msgTextObj.AddComponent<ContentSizeFitter>();
+            msgTextCsf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            
+            // Add an Image placeholder for generated images
+            GameObject msgImgObj = CreatePanel("MsgImage", msgPrefab.transform, Color.white);
+            msgImgObj.SetActive(false); // Hidden by default unless an image exists
+            var imgLe = msgImgObj.AddComponent<LayoutElement>();
+            imgLe.minHeight = 400; // Default height for an image
+            imgLe.flexibleWidth = 1f;
+            var arf = msgImgObj.AddComponent<AspectRatioFitter>();
+            arf.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            arf.aspectRatio = 1f; // Square by default, will update dynamically when downloaded
+
+            // Allow the prefab itself to size according to the text & image padding
+            var msgVLG = msgPrefab.AddComponent<VerticalLayoutGroup>();
+            msgVLG.childControlWidth = true;
+            msgVLG.childForceExpandWidth = true; // Forces text/image child to fill width of bubble
+            msgVLG.childControlHeight = true;
+            msgVLG.childForceExpandHeight = false;
+            msgVLG.spacing = 20;
+            msgVLG.padding = new RectOffset(40, 40, 40, 40);
+            
+            var msgCsf = msgPrefab.AddComponent<ContentSizeFitter>();
+            msgCsf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            
+            // Ensure width isn't constrained to 0
+            msgPrefab.GetComponent<RectTransform>().sizeDelta = new Vector2(0, 150);
+
             msgPrefab.SetActive(false); 
 
             // -------------------------------------------------------------
