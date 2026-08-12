@@ -226,7 +226,7 @@ namespace CortexAI
             var msgs = await Client.GetMessagesAsync(c.Id);
             if (msgs == null) return;
 
-            foreach (var m in msgs) AddMessageToUI(m.role == "user" ? "You" : "CortexAI", m.content, m.images);
+            foreach (var m in msgs) AddMessageToUI(m.role == "user" ? "You" : "CortexAI", m.content, m.images, m.artifacts);
         }
 
         private async void OnSendClicked()
@@ -254,13 +254,13 @@ namespace CortexAI
 
             var res = await Client.SendPromptAsync(prompt, _activeConv.Id, _currentMode);
             
-            if (res != null) AddMessageToUI("CortexAI", res.answer, res.images);
+            if (res != null) AddMessageToUI("CortexAI", res.answer, res.images, res.artifacts);
             else AddMessageToUI("Error", "Failed to get a response from the server.");
 
             SendButton.interactable = true;
         }
 
-        private void AddMessageToUI(string sender, string text, string[] images = null)
+        private void AddMessageToUI(string sender, string text, string[] images = null, CortexAIArtifact[] artifacts = null)
         {
             GameObject msgObj = null;
     
@@ -291,45 +291,78 @@ namespace CortexAI
             else
                 msgObj.GetComponentInChildren<TextMeshProUGUI>().text = $"<b>{sender}</b>\n{text}";
 
-            // Handle Images
-            var imgTemplate = msgObj.transform.Find("ImageTemplate");
-            if (imgTemplate != null)
+            // 5. HANDLE ARTIFACTS (PDFs)
+            if (artifacts != null && artifacts.Length > 0)
             {
-                // First, deactivate any previously spawned images inside this recycled bubble
-                foreach (Transform child in msgObj.transform)
+                foreach (var artifact in artifacts)
                 {
-                    if (child.name.StartsWith("SpawnedImage_"))
+                    if (!string.IsNullOrEmpty(artifact.url))
                     {
-                        child.gameObject.SetActive(false);
-                    }
-                }
+                        // Option A: Automatically open the PDF in the device's native browser/viewer
+                        // Application.OpenURL(artifact.url);
 
-                // If this message has images, spawn them from the template!
-                if (images != null && images.Length > 0)
-                {
-                    for (int i = 0; i < images.Length; i++)
-                    {
-                        if (string.IsNullOrEmpty(images[i])) continue;
-
-                        // Check if we already have an inactive spawned image to reuse
-                        Transform existingImg = msgObj.transform.Find($"SpawnedImage_{i}");
-                        GameObject spawnedImgObj;
-                        
-                        if (existingImg != null)
+                        // Option B: If you add an "OpenPDFButton" to your MessagePrefab, bind it like this:
+                        Transform pdfButtonTransform = msgObj.transform.Find("OpenPDFButton");
+                        if (pdfButtonTransform != null)
                         {
-                            spawnedImgObj = existingImg.gameObject;
-                        }
-                        else
-                        {
-                            spawnedImgObj = Instantiate(imgTemplate.gameObject, msgObj.transform);
-                            spawnedImgObj.name = $"SpawnedImage_{i}";
-                        }
+                            pdfButtonTransform.gameObject.SetActive(true);
+                            
+                            // Optional: Update button text
+                            var btnText = pdfButtonTransform.GetComponentInChildren<TextMeshProUGUI>();
+                            if (btnText != null) btnText.text = $"Open {artifact.title}";
 
-                        spawnedImgObj.SetActive(true);
-                        _ = DownloadAndApplyImageAsync(images[i], spawnedImgObj.GetComponent<Image>(), spawnedImgObj.GetComponent<AspectRatioFitter>());
+                            Button pdfBtn = pdfButtonTransform.GetComponent<Button>();
+                            if (pdfBtn != null)
+                            {
+                                pdfBtn.onClick.RemoveAllListeners();
+                                // Store the URL locally to avoid closure issues in the listener
+                                string urlToOpen = artifact.url;
+                                pdfBtn.onClick.AddListener(() => Application.OpenURL(urlToOpen));
+                            }
+                        }
                     }
                 }
             }
+
+            // Handle Images
+            // var imgTemplate = msgObj.transform.Find("ImageTemplate");
+            // if (imgTemplate != null)
+            // {
+            //     // First, deactivate any previously spawned images inside this recycled bubble
+            //     foreach (Transform child in msgObj.transform)
+            //     {
+            //         if (child.name.StartsWith("SpawnedImage_"))
+            //         {
+            //             child.gameObject.SetActive(false);
+            //         }
+            //     }
+
+            //     // If this message has images, spawn them from the template!
+            //     if (images != null && images.Length > 0)
+            //     {
+            //         for (int i = 0; i < images.Length; i++)
+            //         {
+            //             if (string.IsNullOrEmpty(images[i])) continue;
+
+            //             // Check if we already have an inactive spawned image to reuse
+            //             Transform existingImg = msgObj.transform.Find($"SpawnedImage_{i}");
+            //             GameObject spawnedImgObj;
+                        
+            //             if (existingImg != null)
+            //             {
+            //                 spawnedImgObj = existingImg.gameObject;
+            //             }
+            //             else
+            //             {
+            //                 spawnedImgObj = Instantiate(imgTemplate.gameObject, msgObj.transform);
+            //                 spawnedImgObj.name = $"SpawnedImage_{i}";
+            //             }
+
+            //             spawnedImgObj.SetActive(true);
+            //             _ = DownloadAndApplyImageAsync(images[i], spawnedImgObj.GetComponent<Image>(), spawnedImgObj.GetComponent<AspectRatioFitter>());
+            //         }
+            //     }
+            // }
         }
 
         private async Task DownloadAndApplyImageAsync(string url, Image targetImage, AspectRatioFitter fitter)
