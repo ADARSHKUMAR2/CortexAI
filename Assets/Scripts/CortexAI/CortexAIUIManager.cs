@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using System.Threading.Tasks;
 
 namespace CortexAI
@@ -11,15 +12,21 @@ namespace CortexAI
 
         [Header("Login Screen")]
         public GameObject LoginPanel;
-        public InputField TokenInput;
+        public TMP_InputField TokenInput;
         public Button GoogleLoginButton;
 
         [Header("Main Chat Screen")]
         public GameObject MainPanel;
-        public Text UserInfoText;
+        public TextMeshProUGUI UserInfoText;
         public Button LogoutButton;
         public Button NewChatButton;
-        public Dropdown AgentModeDropdown;
+        public TMP_Dropdown AgentModeDropdown;
+        
+        [Header("Sidebar")]
+        public GameObject SidePanel;
+        public Button OpenSidebarButton;
+        public Button CloseSidebarButton;
+        public Button SubscriptionButton;
         
         [Header("Conversations List")]
         public RectTransform ConversationsContent;
@@ -28,7 +35,7 @@ namespace CortexAI
         [Header("Chat Area")]
         public RectTransform MessagesContent;
         public GameObject MessagePrefab; // A UI Text/Panel prefab
-        public InputField PromptInput;
+        public TMP_InputField PromptInput;
         public Button SendButton;
 
         private CortexAIConversation _activeConv;
@@ -43,6 +50,9 @@ namespace CortexAI
             LogoutButton.onClick.AddListener(OnLogoutClicked);
             NewChatButton.onClick.AddListener(OnNewChatClicked);
             SendButton.onClick.AddListener(OnSendClicked);
+            
+            if (OpenSidebarButton != null) OpenSidebarButton.onClick.AddListener(() => SidePanel.SetActive(true));
+            if (CloseSidebarButton != null) CloseSidebarButton.onClick.AddListener(() => SidePanel.SetActive(false));
 
             if (AgentModeDropdown != null)
             {
@@ -136,17 +146,26 @@ namespace CortexAI
             foreach (Transform child in ConversationsContent) Destroy(child.gameObject);
 
             var convs = await Client.GetConversationsAsync();
+            Debug.Log($"[CortexAI] Loaded {convs?.Length ?? 0} conversations from API.");
             if (convs == null || convs.Length == 0) return;
 
             foreach (var c in convs)
             {
                 var btnObj = Instantiate(ConversationButtonPrefab, ConversationsContent);
-                btnObj.GetComponentInChildren<Text>().text = c.DisplayTitle;
+                btnObj.SetActive(true); // Crucial: Prefab is inactive by default!
+                
+                var txtTransform = btnObj.transform.Find("Text");
+                if (txtTransform != null) 
+                    txtTransform.GetComponent<TextMeshProUGUI>().text = c.DisplayTitle;
+                else 
+                    btnObj.GetComponentInChildren<TextMeshProUGUI>().text = c.DisplayTitle;
+
                 btnObj.GetComponent<Button>().onClick.AddListener(() => _ = SelectConversation(c));
             }
 
             // Auto-select the first (most recent) conversation by default
-            _ = SelectConversation(convs[0]);
+            if (convs.Length > 0)
+                _ = SelectConversation(convs[0]);
         }
 
         private async Task SelectConversation(CortexAIConversation c)
@@ -194,7 +213,7 @@ namespace CortexAI
         private void AddMessageToUI(string sender, string text)
         {
             var msgObj = Instantiate(MessagePrefab, MessagesContent);
-            msgObj.GetComponentInChildren<Text>().text = $"<b>{sender}</b>\n{text}";
+            msgObj.GetComponentInChildren<TextMeshProUGUI>().text = $"<b>{sender}</b>\n{text}";
         }
 
         private void ClearChat()

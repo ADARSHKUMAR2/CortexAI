@@ -1,7 +1,7 @@
 ﻿<Solution>
   <Project Path="Firebase.App.Internal.csproj" />
   <Project Path="GoogleSignInAssembly.csproj" />
+  <Project Path="CortexAI.Editor.csproj" />
   <Project Path="NewAssembly.csproj" />
   <Project Path="CortexAI.UI.csproj" />
-  <Project Path="CortexAI.Editor.csproj" />
 </Solution>
