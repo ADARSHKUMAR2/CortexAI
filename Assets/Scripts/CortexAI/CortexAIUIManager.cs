@@ -254,7 +254,17 @@ namespace CortexAI
 
             var res = await Client.SendPromptAsync(prompt, _activeConv.Id, _currentMode);
             
-            if (res != null) AddMessageToUI("CortexAI", res.answer, res.images, res.artifacts);
+            if (res != null) 
+            {
+                AddMessageToUI("CortexAI", res.answer, res.images, res.artifacts);
+
+                // Refresh the user's session to get updated credits
+                bool sessionValid = await Client.CheckSessionAsync();
+                if (sessionValid && Client.CurrentUser != null)
+                {
+                    UserInfoText.text = $"{Client.CurrentUser.DisplayName} (Credits: {Client.CurrentUser.credits})";
+                }
+            }
             else AddMessageToUI("Error", "Failed to get a response from the server.");
 
             SendButton.interactable = true;

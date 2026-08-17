@@ -11,7 +11,7 @@ namespace CortexAI
     public class CortexAIClient
     {
         private const string SessionCookieKey = "CortexAI_Mobile_Session";
-        public string BaseUrl = "http://192.168.1.9:8000"; // Update this to your deployed gateway URL before building
+        public string BaseUrl { get; private set; } // Update this to your deployed gateway URL before building
         
         public string SessionCookie { get; private set; }
         public CortexAIUser CurrentUser { get; private set; }
@@ -19,6 +19,19 @@ namespace CortexAI
         public CortexAIClient()
         {
             SessionCookie = PlayerPrefs.GetString(SessionCookieKey, "");
+
+            CortexAIConfig config = Resources.Load<CortexAIConfig>("CortexAIConfig");
+    
+            if (config != null)
+            {
+                BaseUrl = config.GetCurrentUrl();
+                Debug.Log($"[CortexAI] Loaded API Config. Environment: {config.CurrentEnvironment}, BaseUrl: {BaseUrl}");
+            }
+            else
+            {
+                Debug.LogWarning("[CortexAI] 'CortexAIConfig' not found in Resources folder! Falling back to local URL.");
+                BaseUrl = "http://192.168.1.9:8000"; // Fallback just in case
+            }
         }
 
         public void SetManualCookie(string cookie)
